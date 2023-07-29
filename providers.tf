@@ -1,6 +1,6 @@
 # Define AWS provider
 provider "aws" {
   region     = var.aws_region # Update with your desired region
-  access_key = "AKIATQ3QMFNJYWFII7W4"
-  secret_key = "sI8PL0Qco62ntMm1/GLQ6GwMvu8Bgn6SOc/iSPZa"
+  access_key = "AKIA3BWTZKZCHOEJLZMK"
+  secret_key = "5OTQe4JVnQxJLki1tGxB6a0hsfR8nqNSl+/4gSCR"
 }

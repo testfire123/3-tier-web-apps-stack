@@ -3,15 +3,15 @@ resource "aws_key_pair" "tf_apps" {
   public_key = file("${path.module}/id_rsa.pub")
 }
 
-# # Create load balancer
-# resource "aws_lb" "web_lb" {
-#   name               = "web-lb"
-#   load_balancer_type = "application"
-#   internal           = false
-#   subnets            = [aws_subnet.public_01.id, aws_subnet.public_02.id] # [for subnet in aws_subnet.public : subnet.id]
-#   security_groups    = [aws_security_group.web_alb_sg.id]
+# Create load balancer
+resource "aws_lb" "web_lb" {
+  name               = "web-lb"
+  load_balancer_type = "application"
+  internal           = false
+  subnets            = [aws_subnet.public_01.id, aws_subnet.public_02.id] # [for subnet in aws_subnet.public : subnet.id]
+  security_groups    = [aws_security_group.web_alb_sg.id]
   
-# }
+}
 
 resource "aws_lb_target_group" "web_target_group" {
   name = "web-target-group"
@@ -40,16 +40,16 @@ resource "aws_autoscaling_group" "web_autoscaling_group" {
   }
 }
 
-# resource "aws_lb_listener" "web_listener" {
-#   load_balancer_arn = aws_lb.web_lb.arn
-#   port              = 80
-#   protocol          = "HTTP"
+resource "aws_lb_listener" "web_listener" {
+  load_balancer_arn = aws_lb.web_lb.arn
+  port              = 80
+  protocol          = "HTTP"
 
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.web_target_group.arn
-#   }
-# }
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web_target_group.arn
+  }
+}
 
 resource "aws_launch_template" "nginx01" {
   name_prefix            = "nginx01"
@@ -74,25 +74,25 @@ EOF
 
 
 
-# resource "aws_lb" "apps_lb" {
-#   name               = "apps-lb"
-#   load_balancer_type = "application"
-#   internal           = true
-#   subnets            = [aws_subnet.private_01.id, aws_subnet.private_02.id] # [for subnet in aws_subnet.public : subnet.id]
-#   # cross_zone_load_balancing = true
-#   security_groups    = [aws_security_group.public_sg.id]
-# }
+resource "aws_lb" "apps_lb" {
+  name               = "apps-lb"
+  load_balancer_type = "application"
+  internal           = true
+  subnets            = [aws_subnet.private_01.id, aws_subnet.private_02.id] # [for subnet in aws_subnet.public : subnet.id]
+  # cross_zone_load_balancing = true
+  security_groups    = [aws_security_group.public_sg.id]
+}
 
-# resource "aws_lb_listener" "apps_listener" {
-#   load_balancer_arn = aws_lb.apps_lb.arn
-#   port              = 80
-#   protocol          = "HTTP"
+resource "aws_lb_listener" "apps_listener" {
+  load_balancer_arn = aws_lb.apps_lb.arn
+  port              = 80
+  protocol          = "HTTP"
 
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.apps_target_group.arn
-#   }
-# }
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.apps_target_group.arn
+  }
+}
 
 resource "aws_lb_target_group" "apps_target_group" {
   name = "apps-target-group"
@@ -112,7 +112,15 @@ resource "aws_launch_template" "apps_server" {
   instance_type          = "t2.micro"
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   key_name               = "tf-key"
-
+  user_data = "${base64encode(<<-EOF
+  #!/bin/bash
+   yum update -y
+   yum install nginx -y
+   systemctl start nginx
+   systemctl enable nginx 
+   echo "Hi i am from Terraform" > /usr/share/nginx/html/index.html  
+EOF
+)}"
   
 }
 
