@@ -3,25 +3,24 @@ resource "aws_key_pair" "tf_apps" {
   public_key = file("${path.module}/id_rsa.pub")
 }
 
-# Create load balancer
-resource "aws_lb" "web_lb" {
-  name               = "web-lb"
-  load_balancer_type = "application"
-  internal           = false
-  subnets            = [aws_subnet.public_01.id, aws_subnet.public_02.id] # [for subnet in aws_subnet.public : subnet.id]
-  security_groups    = [aws_security_group.web_alb_sg.id]
-  # cross_zone_load_balancing = true
-}
+# # Create load balancer
+# resource "aws_lb" "web_lb" {
+#   name               = "web-lb"
+#   load_balancer_type = "application"
+#   internal           = false
+#   subnets            = [aws_subnet.public_01.id, aws_subnet.public_02.id] # [for subnet in aws_subnet.public : subnet.id]
+#   security_groups    = [aws_security_group.web_alb_sg.id]
+  
+# }
 
 resource "aws_lb_target_group" "web_target_group" {
   name = "web-target-group"
-  # target_type = "alb"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
 
-  health_check {
-    path = "/"
+   health_check {
+    enabled = true
   }
 }
 
@@ -32,67 +31,68 @@ resource "aws_autoscaling_group" "web_autoscaling_group" {
   desired_capacity          = 2
   vpc_zone_identifier       = [aws_subnet.public_01.id, aws_subnet.public_02.id]
   target_group_arns         = [aws_lb_target_group.web_target_group.arn]
-  health_check_type         = "ELB"
+  # health_check_type         = "ELB"
   health_check_grace_period = 300
 
   launch_template {
     id      = aws_launch_template.nginx01.id
-    version = "$Latest"
+    # version = "$Latest"
   }
 }
 
-resource "aws_lb_listener" "web_listener" {
-  load_balancer_arn = aws_lb.web_lb.arn
-  port              = 80
-  protocol          = "HTTP"
+# resource "aws_lb_listener" "web_listener" {
+#   load_balancer_arn = aws_lb.web_lb.arn
+#   port              = 80
+#   protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.web_target_group.arn
-  }
-}
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.web_target_group.arn
+#   }
+# }
 
 resource "aws_launch_template" "nginx01" {
   name_prefix            = "nginx01"
-  image_id               = data.aws_ami.amazon_linux.id
+  image_id               = "ami-06ca3ca175f37dd66" # data.aws_ami.amazon_linux.id
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.public_sg.id]
   key_name               = "tf-key"
 
-  user_data = base64encode("${path.module}/web-install.sh")
+   # user_data = filebase64("user_data.sh")
+
+   user_data = "${base64encode(<<-EOF
+  #!/bin/bash
+   yum update -y
+   yum install nginx -y
+   systemctl start nginx
+   systemctl enable nginx 
+   echo "Hi i am from Terraform" > /usr/share/nginx/html/index.html  
+EOF
+)}"
 
 }
 
-# Encode the user data in Base64
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
 
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm*"]
-  }
-}
 
-resource "aws_lb" "apps_lb" {
-  name               = "apps-lb"
-  load_balancer_type = "application"
-  internal           = true
-  subnets            = [aws_subnet.private_01.id, aws_subnet.private_02.id] # [for subnet in aws_subnet.public : subnet.id]
-  # cross_zone_load_balancing = true
-  # security_groups    = [aws_security_group.web_alb_sg.id]
-}
+# resource "aws_lb" "apps_lb" {
+#   name               = "apps-lb"
+#   load_balancer_type = "application"
+#   internal           = true
+#   subnets            = [aws_subnet.private_01.id, aws_subnet.private_02.id] # [for subnet in aws_subnet.public : subnet.id]
+#   # cross_zone_load_balancing = true
+#   security_groups    = [aws_security_group.public_sg.id]
+# }
 
-resource "aws_lb_listener" "apps_listener" {
-  load_balancer_arn = aws_lb.apps_lb.arn
-  port              = 80
-  protocol          = "HTTP"
+# resource "aws_lb_listener" "apps_listener" {
+#   load_balancer_arn = aws_lb.apps_lb.arn
+#   port              = 80
+#   protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.apps_target_group.arn
-  }
-}
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.apps_target_group.arn
+#   }
+# }
 
 resource "aws_lb_target_group" "apps_target_group" {
   name = "apps-target-group"
@@ -101,8 +101,8 @@ resource "aws_lb_target_group" "apps_target_group" {
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
 
-  health_check {
-    path = "/"
+   health_check {
+    enabled = true
   }
 }
 
@@ -113,7 +113,6 @@ resource "aws_launch_template" "apps_server" {
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   key_name               = "tf-key"
 
-  user_data = base64encode("${path.module}/apps-install.sh")
   
 }
 
@@ -129,7 +128,7 @@ resource "aws_autoscaling_group" "apps_autoscaling_group" {
 
   launch_template {
     id      = aws_launch_template.apps_server.id
-    version = "$Latest"
+    # version = "$Latest"
   }
 }
 
@@ -144,4 +143,6 @@ resource "aws_db_instance" "db_instance" {
   password               = "mypassword"
   db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
+  skip_final_snapshot    = true
+  
 }

@@ -66,6 +66,14 @@ resource "aws_security_group_rule" "public_ingress_rule_2" {
   source_security_group_id = aws_security_group.web_alb_sg.id
   security_group_id        = aws_security_group.public_sg.id
 }
+resource "aws_security_group_rule" "public_ingress_rule_3" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id        = aws_security_group.public_sg.id
+}
 resource "aws_security_group_rule" "public_egress_rule_1" {
   type              = "egress"
   from_port         = 0
